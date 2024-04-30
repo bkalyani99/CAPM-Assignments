@@ -1,0 +1,137 @@
+_schema-version: "3.1"
+ID: ExternalService_pa8539u09
+description: A simple CAP project.
+version: 1.0.0
+modules:
+- name: ExternalService_pa8539u09-srv
+  type: nodejs
+  path: gen/srv
+  requires:
+  # - name: ExternalService_pa8539u09-db
+  - name: uaa_ExternalService_pa8539u09
+  provides:
+  - name: srv-api
+    properties:
+      srv-url: ${default-url}
+  parameters:
+    buildpack: nodejs_buildpack
+    readiness-health-check-http-endpoint: /health
+    readiness-health-check-type: http
+  build-parameters:
+    builder: npm
+# - name: ExternalService_pa8539u09-db-deployer
+#   type: hdb
+#   path: gen/db
+#   requires:
+#   - name: ExternalService_pa8539u09-db
+#   parameters:
+#     buildpack: nodejs_buildpack
+- name: ExternalService_pa8539u09-destination-content
+  type: com.sap.application.content
+  requires:
+  - name: ExternalService_pa8539u09-destination-service
+    parameters:
+      content-target: true
+  - name: ExternalService_pa8539u09_html_repo_host
+    parameters:
+      service-key:
+        name: ExternalService_pa8539u09_html_repo_host-key
+  - name: uaa_ExternalService_pa8539u09
+    parameters:
+      service-key:
+        name: uaa_ExternalService_pa8539u09-key
+  parameters:
+    content:
+      instance:
+        destinations:
+        - Name: External_service_ExternalService_pa8539u09_html_repo_host
+          ServiceInstanceName: ExternalService_pa8539u09-html5-app-host-service
+          ServiceKeyName: ExternalService_pa8539u09_html_repo_host-key
+          sap.cloud.service: External_service
+        - Authentication: OAuth2UserTokenExchange
+          Name: External_service_uaa_ExternalService_pa8539u09
+          ServiceInstanceName: ExternalService_pa8539u09-xsuaa-service
+          ServiceKeyName: uaa_ExternalService_pa8539u09-key
+          sap.cloud.service: External_service
+        existing_destinations_policy: ignore
+  build-parameters:
+    no-source: true
+- name: ExternalService_pa8539u09-app-content
+  type: com.sap.application.content
+  path: .
+  requires:
+  - name: ExternalService_pa8539u09_html_repo_host
+    parameters:
+      content-target: true
+  build-parameters:
+    build-result: resources
+    requires:
+    - artifacts:
+      - comdeloittesapsalesterritory.zip
+      name: comdeloittesapsalesterritory
+      target-path: resources/
+- name: comdeloittesapsalesterritory
+  type: html5
+  path: app/salesterritory
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+resources:
+# - name: ExternalService_pa8539u09-db
+#   type: com.sap.xs.hdi-container
+#   parameters:
+#     service: hana
+#     service-plan: hdi-shared
+- name: ExternalService_pa8539u09-destination-service
+  type: org.cloudfoundry.managed-service
+  parameters:
+    config:
+      HTML5Runtime_enabled: true
+      init_data:
+        instance:
+          destinations:
+          - Authentication: NoAuthentication
+            Name: ui5
+            ProxyType: Internet
+            Type: HTTP
+            URL: https://ui5.sap.com
+          - Authentication: NoAuthentication
+            HTML5.DynamicDestination: true
+            HTML5.ForwardAuthToken: true
+            Name: ExternalService_pa8539u09-srv-api
+            ProxyType: Internet
+            Type: HTTP
+            URL: ~{srv-api/srv-url}
+          existing_destinations_policy: update
+      version: 1.0.0
+    service: destination
+    service-name: ExternalService_pa8539u09-destination-service
+    service-plan: lite
+  requires:
+  - name: srv-api
+- name: ExternalService_pa8539u09_html_repo_host
+  type: org.cloudfoundry.managed-service
+  parameters:
+    service: html5-apps-repo
+    service-name: ExternalService_pa8539u09-html5-app-host-service
+    service-plan: app-host
+- name: uaa_ExternalService_pa8539u09
+  type: org.cloudfoundry.managed-service
+  parameters:
+    path: ./xs-security.json
+    service: xsuaa
+    service-name: ExternalService_pa8539u09-xsuaa-service
+    service-plan: application
+parameters:
+  deploy_mode: html5-repo
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+  - builder: custom
+    commands:
+    - npm ci
+    - npx cds build --production
