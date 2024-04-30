@@ -6,6 +6,7 @@ service collection{
   entity EmployeeData as projection on employeebasicdata.BusinessUserCollection{
     EmployeeID,
     BusinessPartnerFormattedName
+    // comment
   };
   
 }
